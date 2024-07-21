@@ -520,6 +520,11 @@ class Enum(ProtoElement):
                 Globals.naming_style.func_name('%s_name' % self.names),
                 Globals.naming_style.type_name(self.names))
 
+        if self.options.enum_validate:
+            result += 'bool %s(%s v);\n' % (
+                Globals.naming_style.func_name('%s_valid' % self.names),
+                Globals.naming_style.type_name(self.names))
+
         return result
 
     def enum_to_string_definition(self):
@@ -544,6 +549,28 @@ class Enum(ProtoElement):
         result += '}\n'
 
         return result
+
+    def enum_validate(self):
+        if not self.options.enum_validate:
+            return ""
+
+        result = 'bool %s(%s v) {\n' % (
+            Globals.naming_style.func_name('%s_valid' % self.names),
+            Globals.naming_style.type_name(self.names))
+
+        result += '    switch (v) {\n'
+
+        for (enumname, _) in self.values:
+            result += '        case %s: return true;\n' % (
+                Globals.naming_style.enum_entry(enumname)
+                )
+
+        result += '    }\n'
+        result += '    return false;\n'
+        result += '}\n'
+
+        return result
+
 
 class FieldMaxSize:
     def __init__(self, worst = 0, checks = [], field_name = 'undefined'):
@@ -616,6 +643,9 @@ class Field(ProtoElement):
             self.default = desc.default_value
 
         # Check field rules, i.e. required/optional/repeated.
+        if field_options.HasField("label_override"):
+            desc.label = field_options.label_override
+
         can_be_static = True
         if desc.label == FieldD.LABEL_REPEATED:
             self.rules = 'REPEATED'
@@ -626,6 +656,9 @@ class Field(ProtoElement):
                 if field_options.fixed_count:
                   self.rules = 'FIXARRAY'
 
+        elif desc.label == FieldD.LABEL_REQUIRED:
+            # We allow LABEL_REQUIRED using label_override even for proto3 (see #962)
+            self.rules = 'REQUIRED'
         elif field_options.proto3:
             if desc.type == FieldD.TYPE_MESSAGE and not field_options.proto3_singular_msgs:
                 # In most other protobuf libraries proto3 submessages have
@@ -637,8 +670,6 @@ class Field(ProtoElement):
             else:
                 # Proto3 singular fields (without has_field)
                 self.rules = 'SINGULAR'
-        elif desc.label == FieldD.LABEL_REQUIRED:
-            self.rules = 'REQUIRED'
         elif desc.label == FieldD.LABEL_OPTIONAL:
             self.rules = 'OPTIONAL'
         else:
@@ -2381,6 +2412,10 @@ class ProtoFile:
         # Generate enum_name function if enum_to_string option is defined
         for enum in self.enums:
             yield enum.enum_to_string_definition() + '\n'
+
+        # Generate enum_valid function if enum_valid option is defined
+        for enum in self.enums:
+            yield enum.enum_validate() + '\n'
 
         # Add checks for numeric limits
         if self.messages:

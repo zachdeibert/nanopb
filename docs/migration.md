@@ -6,6 +6,72 @@ required modifications of user applications are explained. Also any
 error indications are included, in order to make it easier to find this
 document.
 
+Nanopb-0.4.9 (2024-xx-xx)
+-------------------------
+
+### CMake rules now default to grpcio_tools protoc
+
+**Rationale:** Previously CMake rules primarily looked for `protoc` in system
+path. This was often an outdated version installed from package manager, and
+not necessarily compatible with `python-protobuf` version installed from `pip`.
+
+**Changes:** CMake rules now default to using `generator/protoc`, which in
+turn uses `grpc_tools` Python package if available. If it is not available,
+system path is searched for `protoc`.
+
+**Required actions:** For most users, no actions are needed. In case of
+version incompatibilities, `pip install --user --upgrade grpcio-tools protobuf`
+is recommended. If needed, `PROTOBUF_PROTOC_EXECUTABLE` can be set to override
+the default.
+
+**Error indications:** `Failed to import generator/proto/nanopb_pb2.py` if
+versions of `protoc` selected by CMake is different than installed `python-protobuf`.
+
+### Use uint8_t for pb_byte_t when UINT8_MAX is defined
+
+**Rationale:** Previously `pb_byte_t` was always defined as `uint8_least_t`.
+This could be annoying on some platforms without this define, or when some
+compiles might warn on conversion from `uint8_t`. However not all platforms
+support `uint8_t` sized access.
+
+**Changes:** The `stdint.h` header will define `UINT8_MAX` exactly if `uint8_t`
+is available. Use it to select which type to typedef.
+
+**Required actions:** Usually none. If any compiler warnings are generated,
+they can either be fixed or `PB_BYTE_T_OVERRIDE` can be defined to `uint_least8_t`
+to restore old behavior.
+
+**Error indications:** Implicit conversion from `uint_least8_t` to `uint8_t`.
+
+### Migrate to bzlmod
+
+**Rationale:** Due to the [shortcomings of the WORKSPACE system](https://bazel.build/external/overview#workspace-shortcomings),
+Bzlmod is going to replace the legacy WORKSPACE system in future Bazel releases.
+Therefore, nanopb has been migrated to use bzlmod to better support newer bazel versions.
+
+**Changes**
+* upgrade bazel deps
+  * rules_python: 0.24.0
+  * rules_proto: 5.3.0-21.7
+  * protobuf: 23.1
+  * rules_proto_grpc: 4.6.0
+* Start using bzlmod (MODULE.bazel)
+
+**Required actions:** bazel build using WORKSPACE has been deprecated. To use bzlmod, adding below content to your MODULE.bazel
+```py
+bazel_dep(name = "nanopb", version = "0.4.9")
+git_override(
+    module_name = "nanopb",
+    remote = "https://github.com/nanopb/nanopb.git",
+    commit = "<commit>",
+)
+```
+noted that the name of the module has been changed to `nanopb`, to better fit the convention of bzlmod.
+If the old name `com_github_nanopb_nanopb` is preferred, can add `repo_name` parameter to indicate the repo name.
+```py
+bazel_dep(name = "nanopb", version = "0.4.9", repo_name="com_github_nanopb_nanopb")
+```
+
 Nanopb-0.4.8 (2023-11-11)
 -------------------------
 
