@@ -1093,7 +1093,6 @@ class Field(ProtoElement):
         yield '}'
         if self.rules in ['REPEATED', 'FIXARRAY'] and self.wiretype != 'STRING':
             yield 'static inline bool encode_%s_pack(pb_ostream_t &stream, const %s *%ss, size_t count) {' % (self.name, self.ctype, self.name)
-            yield '    size_t size = 0;'
             yield '    pb_ostream_t substream = PB_OSTREAM_SIZING;'
             yield '    for (size_t i = 0; i < count; ++i) {'
             for line in self.encode_call('&substream', '%ss[i]' % (self.name)):
